@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: Circular fixture
+  version: 1.0.0
+paths:
+  /nodes/{id}:
+    get:
+      operationId: getNode
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A node
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+components:
+  schemas:
+    Node:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        next:
+          $ref: "#/components/schemas/Node"
+    A:
+      type: object
+      properties:
+        b:
+          $ref: "#/components/schemas/B"
+    B:
+      type: object
+      properties:
+        a:
+          $ref: "#/components/schemas/A"
+        name:
+          type: string

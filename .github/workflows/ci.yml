@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: "Test (Node ${{ matrix.node }} on ${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+
+  quality:
+    name: "Lint, typecheck, and build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: "Lint"
+        run: npx eslint .
+      - name: "Typecheck (expected: no errors)"
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+  smoke:
+    name: "Smoke test the built CLI against the example spec"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Start apiary-mock in the background
+        run: |
+          node dist/cli.js --spec examples/petstore.yaml --scenarios examples/scenarios.yaml --port 4010 &
+          echo $! > server.pid
+      - name: Wait for the server to come up
+        run: npx wait-on -t 15000 http://127.0.0.1:4010/pets
+      - name: "Send a valid request (expected: 2xx)"
+        run: |
+          status=$(curl -s -o response.json -w "%{http_code}" "http://127.0.0.1:4010/pets?status=available")
+          echo "status=$status"
+          cat response.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "expected a 2xx status, got $status"
+            exit 1
+          fi
+      - name: "Send an invalid request (expected: 4xx)"
+        run: |
+          status=$(curl -s -o response.json -w "%{http_code}" "http://127.0.0.1:4010/pets?status=not-a-real-status")
+          echo "status=$status"
+          cat response.json
+          if [ "$status" -lt 400 ] || [ "$status" -ge 500 ]; then
+            echo "expected a 4xx status, got $status"
+            exit 1
+          fi
+      - name: Stop the server
+        if: always()
+        run: kill $(cat server.pid) || true

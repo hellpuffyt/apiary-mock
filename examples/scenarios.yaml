@@ -1,0 +1,40 @@
+scenarios:
+  - name: force a conflict when creating a pet named "Duplicate"
+    match:
+      method: POST
+      path: /pets
+      body:
+        name: Duplicate
+    response:
+      status: 409
+      headers:
+        content-type: application/json
+      body:
+        message: A pet named "Duplicate" already exists
+        code: CONFLICT
+
+  - name: a specific pet id always returns a fixed pet
+    match:
+      method: GET
+      path: /pets/11111111-1111-1111-1111-111111111111
+    response:
+      status: 200
+      body:
+        id: 11111111-1111-1111-1111-111111111111
+        name: Fixture Fido
+        category:
+          id: 1
+          name: Dogs
+        status: available
+
+  - name: filtering by sold status returns an empty page
+    match:
+      method: GET
+      path: /pets
+      query:
+        status: sold
+    response:
+      status: 200
+      body:
+        items: []
+        total: 0

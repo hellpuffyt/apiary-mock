@@ -1,0 +1,55 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Nested refs fixture", "version": "1.0.0" },
+  "paths": {
+    "/widgets": {
+      "get": {
+        "operationId": "listWidgets",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Widget" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Widget": {
+        "type": "object",
+        "required": ["id", "part"],
+        "properties": {
+          "id": { "type": "string" },
+          "part": { "$ref": "#/components/schemas/Part" }
+        }
+      },
+      "Part": {
+        "type": "object",
+        "required": ["sku", "spec"],
+        "properties": {
+          "sku": { "type": "string" },
+          "spec": { "$ref": "#/components/schemas/Spec" }
+        }
+      },
+      "Spec": {
+        "type": "object",
+        "properties": {
+          "weightGrams": { "type": "number", "minimum": 0 },
+          "color": { "$ref": "#/components/schemas/Color" }
+        }
+      },
+      "Color": {
+        "type": "string",
+        "enum": ["red", "green", "blue"]
+      }
+    }
+  }
+}

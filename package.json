@@ -1,0 +1,53 @@
+{
+  "name": "apiary-mock",
+  "version": "1.0.0",
+  "description": "A strict OpenAPI-driven mock server: validates requests against the spec, generates schema-accurate responses, and replays recorded scenarios.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "apiary-mock": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "openapi",
+    "mock",
+    "mock-server",
+    "api",
+    "testing",
+    "validation",
+    "json-schema"
+  ],
+  "author": "Prabesh Sharma",
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "js-yaml": "^5.4.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^26.4.0",
+    "eslint": "^10.9.1",
+    "tsx": "^4.23.13",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11"
+  }
+}
