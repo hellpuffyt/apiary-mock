@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: [18, 20, 22]
+        node: [20, 22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -57,30 +57,56 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
-      - name: Start apiary-mock in the background
+      # Start, probe and exercise the server inside a single step. GitHub runs
+      # each `run:` block in its own shell, so a process backgrounded in one
+      # step is not reliably alive in the next -- which is why probing from a
+      # separate step timed out even though the server starts correctly.
+      - name: "Exercise the built CLI end to end"
         run: |
-          node dist/cli.js --spec examples/petstore.yaml --scenarios examples/scenarios.yaml --port 4010 &
-          echo $! > server.pid
-      - name: Wait for the server to come up
-        run: npx wait-on -t 15000 http://127.0.0.1:4010/pets
-      - name: "Send a valid request (expected: 2xx)"
-        run: |
-          status=$(curl -s -o response.json -w "%{http_code}" "http://127.0.0.1:4010/pets?status=available")
-          echo "status=$status"
-          cat response.json
-          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
-            echo "expected a 2xx status, got $status"
+          set -u
+          node dist/cli.js --spec examples/petstore.yaml \
+            --scenarios examples/scenarios.yaml --port 4010 > server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          # Poll rather than sleep: fail fast with the server log when it dies.
+          ready=""
+          for _ in $(seq 1 40); do
+            if curl -fsS -o /dev/null "http://127.0.0.1:4010/pets"; then
+              ready=yes
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "server exited before becoming ready"
+              cat server.log
+              exit 1
+            fi
+            sleep 0.5
+          done
+          if [ -z "$ready" ]; then
+            echo "server did not become ready within 20s"
+            cat server.log
             exit 1
           fi
-      - name: "Send an invalid request (expected: 4xx)"
-        run: |
-          status=$(curl -s -o response.json -w "%{http_code}" "http://127.0.0.1:4010/pets?status=not-a-real-status")
-          echo "status=$status"
-          cat response.json
-          if [ "$status" -lt 400 ] || [ "$status" -ge 500 ]; then
-            echo "expected a 4xx status, got $status"
+
+          valid=$(curl -s -o valid.json -w "%{http_code}" \
+            "http://127.0.0.1:4010/pets?status=available")
+          echo "valid request -> $valid"
+          cat valid.json
+          if [ "$valid" -lt 200 ] || [ "$valid" -ge 300 ]; then
+            echo "expected a 2xx status, got $valid"
+            cat server.log
             exit 1
           fi
-      - name: Stop the server
-        if: always()
-        run: kill $(cat server.pid) || true
+
+          invalid=$(curl -s -o invalid.json -w "%{http_code}" \
+            "http://127.0.0.1:4010/pets?status=not-a-real-status")
+          echo "invalid request -> $invalid"
+          cat invalid.json
+          if [ "$invalid" -lt 400 ] || [ "$invalid" -ge 500 ]; then
+            echo "expected a 4xx status, got $invalid"
+            cat server.log
+            exit 1
+          fi
+
+          echo "smoke test passed"
