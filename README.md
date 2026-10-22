@@ -119,10 +119,10 @@ apiary-mock — Petary — Example Pet Store API (1.0.0)
 listening on http://127.0.0.1:4010
 
 mounted 4 operation(s):
-  DELETE  /pets/{petId}  (deletePet)
   GET     /pets  (listPets)
-  GET     /pets/{petId}  (getPet)
   POST    /pets  (createPet)
+  DELETE  /pets/{petId}  (deletePet)
+  GET     /pets/{petId}  (getPet)
 ```
 
 ## Scenarios format
