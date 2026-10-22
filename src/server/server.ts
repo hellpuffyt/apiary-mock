@@ -17,6 +17,8 @@ export interface ServerOptions {
   delayMs?: number;
   failRate?: number;
   seed?: string;
+  /** Maximum accepted request body size in bytes (default 10 MiB); larger bodies get a 413. */
+  maxBodyBytes?: number;
 }
 
 export interface MockServer {
@@ -27,11 +29,29 @@ export interface MockServer {
   server: ReturnType<typeof createHttpServer>;
 }
 
-function readBody(req: IncomingMessage): Promise<Buffer> {
+/** Default cap on a request body; a mock server has no reason to buffer more. */
+export const DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024;
+
+class BodyTooLargeError extends Error {}
+
+function readBody(req: IncomingMessage, maxBytes: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    let total = 0;
+    let failed = false;
+    req.on("data", (chunk: Buffer) => {
+      if (failed) return;
+      total += chunk.length;
+      if (total > maxBytes) {
+        failed = true;
+        reject(new BodyTooLargeError(`request body exceeds ${maxBytes} bytes`));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      if (!failed) resolve(Buffer.concat(chunks));
+    });
     req.on("error", reject);
   });
 }
@@ -54,7 +74,18 @@ export function createMockServer(options: ServerOptions): MockServer {
   async function handleAsync(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const method = (req.method ?? "GET").toUpperCase();
     const url = new URL(req.url ?? "/", "http://localhost");
-    const pathname = decodeURIComponent(url.pathname);
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(url.pathname);
+    } catch {
+      sendJson(res, 400, {
+        error: "Bad Request",
+        status: 400,
+        message: "Request path is not valid percent-encoding",
+        issues: [{ location: "path", path: url.pathname, message: "malformed percent-encoding" }],
+      });
+      return;
+    }
 
     const query: Record<string, string | string[]> = {};
     for (const key of url.searchParams.keys()) {
@@ -62,7 +93,17 @@ export function createMockServer(options: ServerOptions): MockServer {
       query[key] = all.length > 1 ? all : (all[0] ?? "");
     }
 
-    const rawBody = await readBody(req);
+    let rawBody: Buffer;
+    try {
+      rawBody = await readBody(req, options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES);
+    } catch (err) {
+      if (err instanceof BodyTooLargeError) {
+        res.setHeader("connection", "close");
+        sendJson(res, 413, { error: "Payload Too Large", status: 413, message: err.message });
+        return;
+      }
+      throw err;
+    }
     const contentType = req.headers["content-type"];
     const rawBodyPresent = rawBody.length > 0;
     let parsedBody: unknown;
@@ -107,7 +148,8 @@ export function createMockServer(options: ServerOptions): MockServer {
       return;
     }
 
-    const routeMatch = matchRoute(operations, method, pathname);
+    // Route on the still-encoded path: matchRoute decodes each segment exactly once.
+    const routeMatch = matchRoute(operations, method, url.pathname);
     if (!routeMatch) {
       const body: Record<string, unknown> = {
         error: "Not Found",

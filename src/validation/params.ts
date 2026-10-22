@@ -1,5 +1,9 @@
 import type { JsonSchema, OpenApiParameter } from "../openapi/types.js";
 import type { ValidationIssue } from "./errors.js";
+import { numericViolation } from "./bounds.js";
+
+/** JSON-number syntax only: rejects "", " ", "0x10", "Infinity", "1_000" that Number() accepts. */
+const NUMBER_RE = /^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 const DATE_TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -38,7 +42,7 @@ function coerceAndValidate(
       break;
     }
     case "number": {
-      if (rawValue === "" || Number.isNaN(Number(rawValue))) {
+      if (!NUMBER_RE.test(rawValue) || !Number.isFinite(Number(rawValue))) {
         issues.push({ location, path: name, message: `expected a number, got "${rawValue}"` });
         return undefined;
       }
@@ -61,13 +65,8 @@ function coerceAndValidate(
   }
 
   if (typeof value === "number" || type === "integer" || type === "number") {
-    const num = value as number;
-    if (schema.minimum !== undefined && num < schema.minimum) {
-      issues.push({ location, path: name, message: `must be >= ${schema.minimum}, got ${num}` });
-    }
-    if (schema.maximum !== undefined && num > schema.maximum) {
-      issues.push({ location, path: name, message: `must be <= ${schema.maximum}, got ${num}` });
-    }
+    const violation = numericViolation(value as number, schema);
+    if (violation) issues.push({ location, path: name, message: violation });
   }
 
   if (typeof value === "string") {
