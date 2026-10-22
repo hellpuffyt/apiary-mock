@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The CLI did nothing (exit 0, no output) when run through its npm bin
+  (`npx apiary-mock`, `node_modules/.bin`, `npm link`, global install) because
+  the entry-point check did not resolve symlinks.
 - Path parameters were percent-decoded twice: `/files/100%25` returned a 500
   and `%2F` split a parameter into two segments. Each segment is now decoded once.
 - Malformed percent-encoding in the request path returns `400` instead of `500`.

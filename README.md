@@ -191,7 +191,7 @@ npx tsc --noEmit  # typecheck (src + test)
 npx eslint .       # lint
 ```
 
-The suite (183 tests across 13 files) covers `$ref` resolution (including
+The suite (184 tests across 13 files) covers `$ref` resolution (including
 nested and circular schemas), request validation for every violation class
 *and* valid-request false-positive guards, schema-driven generation and its
 constraints, determinism under a fixed seed, scenario matching precedence,
