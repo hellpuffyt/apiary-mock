@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadSpec } from "./openapi/loader.js";
 import { loadScenarios } from "./scenarios/scenarios.js";
 import { createMockServer } from "./server/server.js";
@@ -140,8 +141,21 @@ export async function main(argv: string[]): Promise<void> {
   process.stdout.write(formatStartupSummary(mock.operations, doc.info, address) + "\n");
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isMain) {
+/**
+ * True when this module is the process entry point. npm installs `bin` entries as symlinks
+ * (node_modules/.bin, `npx`, `npm link`, global installs), so argv[1] must be compared after
+ * resolving symlinks; a plain URL comparison made the installed CLI exit silently.
+ */
+export function isEntryPoint(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   main(process.argv.slice(2)).catch((err: unknown) => {
     // Configuration/usage errors read better without a stack trace.
     process.stderr.write(`Error: ${err instanceof Error ? err.message : String(err)}\n`);

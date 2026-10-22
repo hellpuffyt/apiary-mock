@@ -60,6 +60,8 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: "Run the CLI through its npm bin (symlink), as installed users do"
+        run: npx --no-install apiary-mock --help | grep "strict OpenAPI mock server"
       # Start, probe and exercise the server inside a single step. GitHub runs
       # each `run:` block in its own shell, so a process backgrounded in one
       # step is not reliably alive in the next -- which is why probing from a

@@ -320,3 +320,25 @@ describe("CLI numeric and missing flag values", () => {
     expect(() => parseArgs(argv)).toThrow(message);
   });
 });
+
+describe("CLI entry point detection", () => {
+  it.skipIf(process.platform === "win32")("treats a symlink to the CLI (how npm installs bins) as the entry point", async () => {
+    const { isEntryPoint } = await import("../src/cli.js");
+    const { mkdtempSync, symlinkSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { pathToFileURL } = await import("node:url");
+    const cliPath = path.join(__dirname, "..", "src", "cli.ts");
+    const dir = mkdtempSync(path.join(tmpdir(), "apiary-bin-"));
+    try {
+      const link = path.join(dir, "apiary-mock");
+      symlinkSync(cliPath, link);
+      const url = pathToFileURL(cliPath).href;
+      expect(isEntryPoint(link, url)).toBe(true);
+      expect(isEntryPoint(cliPath, url)).toBe(true);
+      expect(isEntryPoint(path.join(dir, "other.js"), url)).toBe(false);
+      expect(isEntryPoint(undefined, url)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
