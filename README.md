@@ -191,11 +191,15 @@ npx tsc --noEmit  # typecheck (src + test)
 npx eslint .       # lint
 ```
 
-The suite (131 tests across 12 files) covers `$ref` resolution (including
+The suite (183 tests across 13 files) covers `$ref` resolution (including
 nested and circular schemas), request validation for every violation class
 *and* valid-request false-positive guards, schema-driven generation and its
 constraints, determinism under a fixed seed, scenario matching precedence,
 strict mode, and the server exercised over real HTTP on an ephemeral port.
+`test/audit-regressions.test.ts` additionally checks generated values against
+an independent ajv instance (every petstore response body across 100 seeds,
+plus edge-case numeric/string/array/object constraints) and covers malformed
+and hostile specs and request paths.
 
 ## Limitations
 
@@ -206,7 +210,15 @@ strict mode, and the server exercised over real HTTP on an ephemeral port.
   fall back to a generic string.
 - Recursive schemas (e.g. `Category.parent -> Category`) are generated and
   validated to one level of depth; beyond that, generation stops descending
-  and validation permits anything, to avoid infinite structures.
+  (emitting `null`, which violates the schema if that recursive property is
+  *required* and not nullable) and validation permits anything, to avoid
+  infinite structures.
+- Generated strings honour either `format` or `pattern`; `minLength`/
+  `maxLength` are not re-applied on top of a `format`/`pattern` value, and
+  `multipleOf` on a non-integer step for an `integer` falls back to a bound.
+- Spec validation at load time is structural (version, `paths`, operations
+  with non-empty `responses`, parameter `name`/`in`); it is not a full
+  OpenAPI schema validation of the document.
 - OpenAPI parameter `style`/`explode` handling is simplified: array-valued
   query parameters are read either as repeated `?a=1&a=2` or a single
   comma-separated value.
@@ -221,6 +233,17 @@ document or scenario files beyond parsing YAML/JSON, evaluating declared
 it at), and returning declared/generated data. Do not point it at untrusted
 specs or scenario files, and do not expose it on a public network — it is
 meant to run on `127.0.0.1` during local development or CI.
+
+Hardening that is in place: the server binds `127.0.0.1` by default; request
+bodies over 10 MiB are refused with `413` (library option `maxBodyBytes`);
+malformed percent-encoding in a path is a `400`; YAML is parsed with js-yaml's
+default (safe) schema, so `!!js/*` tags are rejected; YAML aliases are not
+expanded into copies (a small "billion laughs" document loads instantly);
+`$ref` pointers only follow the document's own properties; and numeric CLI
+flags are range-checked. A `pattern` from the spec is still run against
+request input, so a catastrophic-backtracking pattern in a spec can be slow.
+
+Please report vulnerabilities privately as described in [SECURITY.md](./SECURITY.md).
 
 ## License
 
