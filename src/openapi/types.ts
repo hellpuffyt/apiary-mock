@@ -16,10 +16,13 @@ export type JsonSchema = Record<string, unknown> & {
   maximum?: number;
   exclusiveMinimum?: number | boolean;
   exclusiveMaximum?: number | boolean;
+  multipleOf?: number;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
   maxItems?: number;
+  uniqueItems?: boolean;
+  minProperties?: number;
   pattern?: string;
   oneOf?: JsonSchema[];
   anyOf?: JsonSchema[];

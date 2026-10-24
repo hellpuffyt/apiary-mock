@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { loadSpec } from "./openapi/loader.js";
 import { loadScenarios } from "./scenarios/scenarios.js";
 import { createMockServer } from "./server/server.js";
@@ -37,6 +38,25 @@ Options:
   -h, --help           Show this help text.
 `;
 
+function numberFlag(
+  flag: string,
+  raw: string | undefined,
+  check: { integer?: boolean; min: number; max: number },
+): number {
+  const value = raw === undefined || raw.trim() === "" ? Number.NaN : Number(raw);
+  if (!Number.isFinite(value) || (check.integer && !Number.isInteger(value)) || value < check.min || value > check.max) {
+    throw new Error(
+      `${flag} expects ${check.integer ? "an integer" : "a number"} between ${check.min} and ${check.max}, got ${JSON.stringify(raw ?? "")}`,
+    );
+  }
+  return value;
+}
+
+function stringFlag(flag: string, raw: string | undefined): string {
+  if (raw === undefined || raw.startsWith("--")) throw new Error(`${flag} requires a value`);
+  return raw;
+}
+
 export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     port: 4010,
@@ -52,31 +72,31 @@ export function parseArgs(argv: string[]): CliOptions {
     const arg = argv[i];
     switch (arg) {
       case "--spec":
-        options.spec = argv[++i];
+        options.spec = stringFlag(arg, argv[++i]);
         break;
       case "--scenarios":
-        options.scenarios = argv[++i];
+        options.scenarios = stringFlag(arg, argv[++i]);
         break;
       case "--port":
-        options.port = Number(argv[++i]);
+        options.port = numberFlag(arg, argv[++i], { integer: true, min: 0, max: 65535 });
         break;
       case "--host":
-        options.host = argv[++i] as string;
+        options.host = stringFlag(arg, argv[++i]);
         break;
       case "--strict":
         options.strict = true;
         break;
       case "--prefer":
-        options.prefer = Number(argv[++i]);
+        options.prefer = numberFlag(arg, argv[++i], { integer: true, min: 100, max: 599 });
         break;
       case "--delay":
-        options.delay = Number(argv[++i]);
+        options.delay = numberFlag(arg, argv[++i], { min: 0, max: 600_000 });
         break;
       case "--fail-rate":
-        options.failRate = Number(argv[++i]);
+        options.failRate = numberFlag(arg, argv[++i], { min: 0, max: 1 });
         break;
       case "--seed":
-        options.seed = argv[++i] as string;
+        options.seed = stringFlag(arg, argv[++i]);
         break;
       case "-h":
       case "--help":
@@ -121,10 +141,24 @@ export async function main(argv: string[]): Promise<void> {
   process.stdout.write(formatStartupSummary(mock.operations, doc.info, address) + "\n");
 }
 
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (isMain) {
+/**
+ * True when this module is the process entry point. npm installs `bin` entries as symlinks
+ * (node_modules/.bin, `npx`, `npm link`, global installs), so argv[1] must be compared after
+ * resolving symlinks; a plain URL comparison made the installed CLI exit silently.
+ */
+export function isEntryPoint(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint(process.argv[1], import.meta.url)) {
   main(process.argv.slice(2)).catch((err: unknown) => {
-    process.stderr.write(`${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+    // Configuration/usage errors read better without a stack trace.
+    process.stderr.write(`Error: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exitCode = 1;
   });
 }

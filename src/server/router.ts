@@ -5,20 +5,45 @@ export interface RouteMatch {
   pathParams: Record<string, string>;
 }
 
+/**
+ * Matches a request against the mounted operations.
+ *
+ * `rawPathname` must still be percent-encoded (as it arrives on the wire). Each `/`-separated
+ * segment is decoded exactly once, after splitting, so an encoded slash (`%2F`) stays inside
+ * its path parameter and a literal `%` (`%25`) is not decoded twice. Returns undefined when
+ * nothing matches or a segment is not valid percent-encoding.
+ */
 export function matchRoute(
   operations: MountedOperation[],
   method: string,
-  pathname: string,
+  rawPathname: string,
 ): RouteMatch | undefined {
+  const segments: string[] = [];
+  for (const raw of rawPathname.split("/")) {
+    try {
+      segments.push(decodeURIComponent(raw));
+    } catch {
+      return undefined;
+    }
+  }
   for (const op of operations) {
     if (op.method !== method.toLowerCase()) continue;
-    const match = op.pathRegex.exec(pathname);
-    if (!match) continue;
+    const template = op.path.split("/");
+    if (template.length !== segments.length) continue;
     const pathParams: Record<string, string> = {};
-    op.pathParamNames.forEach((name, i) => {
-      pathParams[name] = decodeURIComponent(match[i + 1] ?? "");
-    });
-    return { operation: op, pathParams };
+    let ok = true;
+    for (let i = 0; i < template.length && ok; i++) {
+      const tmpl = template[i] as string;
+      const seg = segments[i] as string;
+      const param = /^\{(.+)\}$/.exec(tmpl);
+      if (param) {
+        if (seg === "") ok = false;
+        else pathParams[param[1] as string] = seg;
+      } else if (tmpl !== seg) {
+        ok = false;
+      }
+    }
+    if (ok) return { operation: op, pathParams };
   }
   return undefined;
 }

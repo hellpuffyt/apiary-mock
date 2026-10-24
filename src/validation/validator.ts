@@ -10,7 +10,9 @@ import { RequestValidationError, type ValidationIssue } from "./errors.js";
 // type-only mismatch rather than fight the two packages' module formats.
 const addFormats = addFormatsImport as unknown as (instance: Ajv) => void;
 
-const ajv = new Ajv({ strict: false, allErrors: true, coerceTypes: false });
+// multipleOfPrecision: without it ajv compares `data / multipleOf` to an integer exactly,
+// so binary floating point makes e.g. 0.3 "not a multiple of 0.1" and valid requests fail.
+const ajv = new Ajv({ strict: false, allErrors: true, coerceTypes: false, multipleOfPrecision: 9 });
 addFormats(ajv);
 
 const compiledCache = new WeakMap<object, ReturnType<typeof ajv.compile>>();

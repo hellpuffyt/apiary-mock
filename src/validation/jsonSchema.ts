@@ -40,6 +40,23 @@ function convert(node: unknown, cache: Map<unknown, unknown>, inProgress: Set<un
   }
   inProgress.delete(node);
 
+  // OpenAPI 3.0 boolean exclusive bounds (`minimum: 1, exclusiveMinimum: true`) are not
+  // valid in the JSON Schema dialect ajv compiles (draft-07+ wants a number), so ajv
+  // rejected the whole schema and every request to the operation failed with a 500.
+  for (const [flag, bound] of [
+    ["exclusiveMinimum", "minimum"],
+    ["exclusiveMaximum", "maximum"],
+  ] as const) {
+    if (typeof out[flag] === "boolean") {
+      if (out[flag] === true && typeof out[bound] === "number") {
+        out[flag] = out[bound];
+        delete out[bound];
+      } else {
+        delete out[flag];
+      }
+    }
+  }
+
   let result: Record<string, unknown> = out;
   if (obj.nullable === true) {
     if (typeof out.type === "string") {
