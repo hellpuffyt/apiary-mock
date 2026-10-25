@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="450" viewBox="0 0 1200 450" role="img" aria-labelledby="t d">
+<title id="t">apiary-mock: startup and request pipeline</title>
+<desc id="d">At startup cli.ts parses flags, the openapi module loads the spec, resolves local refs and mounts operations, and createMockServer starts a node:http server. Each request is read and its JSON body parsed, then delayed or failed by --delay and --fail-rate, matched against scenarios, routed, validated against the spec, and answered with a response selected by --prefer and generated from the schema with a seeded PRNG.</desc>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#A3AAA6"/></marker><marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3FBF8A"/></marker></defs>
+<rect width="1200" height="450" fill="#0C0D0D"/>
+<text x="40" y="44" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#A3AAA6">STARTUP</text>
+<rect x="40" y="60" width="250" height="104" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="54" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">inputs</text>
+<text x="54" y="108" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">OpenAPI 3.0/3.1 spec (YAML/JSON)</text>
+<text x="54" y="125" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">scenarios file (optional)</text>
+<text x="54" y="142" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">CLI flags</text>
+<rect x="330" y="60" width="180" height="104" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="344" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">cli.ts</text>
+<text x="344" y="108" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">parse + range-check flags</text>
+<text x="344" y="125" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">--help usage text</text>
+<rect x="550" y="60" width="280" height="104" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="564" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">openapi/</text>
+<text x="564" y="108" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">loadSpec: structural checks</text>
+<text x="564" y="125" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">resolveRefs: local $ref, cycles</text>
+<text x="564" y="142" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">mountOperations: path templates</text>
+<rect x="870" y="60" width="290" height="104" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="884" y="86" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">server/server.ts</text>
+<text x="884" y="108" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">createMockServer</text>
+<text x="884" y="125" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">node:http on 127.0.0.1:4010</text>
+<text x="884" y="142" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">startup summary (summary.ts)</text>
+<line x1="292" y1="112" x2="326" y2="112" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="512" y1="112" x2="546" y2="112" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<line x1="832" y1="112" x2="866" y2="112" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<text x="132" y="220" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="12" fill="#A3AAA6">PER REQUEST</text>
+<line x1="1015" y1="166" x2="1015" y2="186" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<path d="M1015,188 L1015,194 L115,194 L115,226" fill="none" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="40" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="54" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">request</text>
+<text x="54" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">read body, decode</text>
+<text x="54" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">path, parse JSON</text>
+<text x="54" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">413 body &gt; 10 MiB</text>
+<text x="54" y="383" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">400 bad %-escape,</text>
+<text x="54" y="400" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">400 invalid JSON</text>
+<line x1="191" y1="285" x2="200" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="202" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="216" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">--delay</text>
+<text x="216" y="274" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">--fail-rate</text>
+<text x="216" y="296" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">every request</text>
+<text x="216" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">500 injected failure</text>
+<line x1="353" y1="285" x2="362" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="364" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="378" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">scenarios/</text>
+<text x="378" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">most specific match</text>
+<text x="378" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">wins; ties by order</text>
+<text x="378" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">hit: canned response,</text>
+<text x="378" y="383" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">validation skipped</text>
+<line x1="515" y1="285" x2="524" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="526" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="540" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">router.ts</text>
+<text x="540" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">matchRoute on</text>
+<text x="540" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">path templates</text>
+<text x="540" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">404, nearbyPaths</text>
+<text x="540" y="383" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">in --strict</text>
+<line x1="677" y1="285" x2="686" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="688" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="702" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">validation/</text>
+<text x="702" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">params + ajv</text>
+<text x="702" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">request body</text>
+<text x="702" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">422 with</text>
+<text x="702" y="383" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">issues[]</text>
+<line x1="839" y1="285" x2="848" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="850" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="864" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">respond.ts</text>
+<text x="864" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">--prefer status,</text>
+<text x="864" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">else lowest 2xx</text>
+<text x="864" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">declared example</text>
+<text x="864" y="383" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">used if present</text>
+<line x1="1001" y1="285" x2="1010" y2="285" stroke="#A3AAA6" stroke-width="1.5" marker-end="url(#a)"/>
+<rect x="1012" y="230" width="150" height="110" rx="8" fill="#17191A" stroke="#2A2E2D"/>
+<text x="1026" y="256" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="13" fill="#EEEAE2">generation/</text>
+<text x="1026" y="278" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">generateValue,</text>
+<text x="1026" y="295" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">seeded PRNG,</text>
+<text x="1026" y="312" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">pattern strings</text>
+<text x="1026" y="366" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#3FBF8A">JSON response</text>
+<text x="40" y="426" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif" font-size="12" fill="#A3AAA6">Order follows createMockServer in src/server/server.ts. Lines under the first five stages are the early responses each can send; the last two build the normal response.</text>
+</svg>

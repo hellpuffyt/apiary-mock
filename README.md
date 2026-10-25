@@ -1,57 +1,60 @@
 # apiary-mock
 
-A mock API server driven entirely by an OpenAPI 3.0/3.1 document — one that
-validates every request against the spec before it answers, the same way the
-real API would.
+A mock HTTP server generated from an OpenAPI 3.0/3.1 document. It validates
+each request against the spec before answering and rejects the ones the spec
+does not allow.
 
-## What
+<img src="docs/assets/overview.svg" width="100%" alt="Diagram of apiary-mock: at startup cli.ts, the openapi loader and createMockServer; per request the stages request, --delay/--fail-rate, scenarios, router, validation, respond and generation, with the early responses each stage can send">
 
-`apiary-mock` reads an OpenAPI document, mounts every declared operation, and
-serves it over plain HTTP. Unlike most mock servers, it does not just echo
-back a canned shape for any request you throw at it: it validates the
-request — path/query/header parameters and the request body — against the
-spec first, and rejects anything the real API would reject, with an error
-shaped like the real API's error would be. Responses it *does* generate are
-built from the operation's response schema, honoring `example`s where the
-spec provides them and otherwise synthesizing values that satisfy the
-schema's constraints deterministically.
+## What it does
+
+`apiary-mock` reads an OpenAPI document, mounts every declared operation and
+serves it over plain HTTP. Before it answers, it checks the path, query and
+header parameters and the request body against the spec, and returns a 422
+listing every problem it found (a body that is not valid JSON gets a 400).
+Valid requests get a response built from the operation's response schema: the
+declared `example` if there is one, otherwise a generated value that satisfies
+the schema's constraints. With a
+fixed `--seed`, the same sequence of requests produces the same responses.
 
 ## Why
 
-Frontend and integration work routinely blocks on a backend that doesn't
-exist yet. The common fix — a mock server — usually accepts anything: wrong
-content type, a missing required field, an out-of-range enum value, a
-malformed path parameter. You build against that fiction, and only discover
-the gap when you integrate against the real thing. apiary-mock is strict
-where the real API is strict, so the contract you build against during
-development is the contract you'll actually get in production.
+A mock server that accepts any request lets a client get away with a wrong
+content type, a missing required field or an out-of-range enum, and the
+mistake only shows up against the real backend. This one fails those requests
+the way the spec says the real API should.
 
 ## Features
 
-- **OpenAPI 3.0/3.1 loading** from YAML or JSON, with local `$ref` resolution
-  — including refs nested several levels deep and circular schemas (e.g. a
+- **OpenAPI 3.0/3.1 loading** from YAML or JSON, with local `$ref` resolution,
+  including refs nested several levels deep and circular schemas (e.g. a
   `Category` that references its own `parent`).
 - **Request validation**: path, query, and header parameters (type, format,
   required, enum, numeric bounds, string length, pattern) and the request
   body against its JSON Schema (via [ajv](https://ajv.js.org)), including
-  content-type negotiation. Violations come back as a 422/400 with a
-  `spec`-shaped error body listing every issue found.
+  content-type negotiation. Violations come back as a 422 (a body that
+  is not valid JSON gets a 400) with a body of the form
+  `{"error", "status", "message", "issues": [{"location", "path", "message"}]}`.
 - **Schema-driven response generation**: uses a declared `example`/`examples`
   when present; otherwise synthesizes a value honoring `type`, `format`
   (`date-time`, `date`, `uuid`, `email`, `uri`, `hostname`, `ipv4`), `enum`,
   `minimum`/`maximum`, `minLength`/`maxLength`, `pattern` (best-effort regex
-  generation), `required`, and nested objects/arrays — deterministically,
-  under `--seed`.
+  generation), `required`, and nested objects/arrays. Output is deterministic
+  for a given `--seed` and request order.
 - **Scenario replay**: point `--scenarios` at a file mapping request matchers
   (method/path/query/body predicate) to canned responses, so you can force a
-  409, a specific error payload, or an empty page on demand.
+  409, a specific error payload, or an empty page on demand. A scenario can
+  also set its own `delayMs`.
 - **Status code selection**: `--prefer 201` picks a specific declared
   response; otherwise the lowest 2xx wins.
 - **`--strict` mode**: 404s for unmatched routes come with a list of the
-  nearest known paths, undeclared query parameters are rejected, and a body
-  sent to an operation that doesn't accept one is rejected too.
+  nearest known paths, undeclared query parameters are rejected, request-body
+  properties not in the schema are rejected (when the schema does not set
+  `additionalProperties` itself), and a body sent to an operation that doesn't
+  accept one is rejected too.
 - **Resilience testing**: `--delay` adds artificial latency to every
-  response; `--fail-rate` randomly injects 500s.
+  response; `--fail-rate` randomly injects 500s. Both apply before scenario
+  matching, so scenario responses are delayed and failed too.
 - **Startup summary**: prints every mounted method + path (+ operationId) so
   you can see at a glance what's being served.
 
@@ -73,28 +76,47 @@ src/
   index.ts     library entry point re-exporting the pieces above
 ```
 
-Requests flow: parse method/path/query/body → check scenarios (first,
-highest-specificity match wins) → if no scenario, route to an operation (404
-if none, with nearby-path hints in `--strict`) → validate the request against
-that operation (422 on violation) → apply `--delay`/`--fail-rate` → generate
-and return a response.
+Each request goes through these steps in order (see `createMockServer` in
+`src/server/server.ts`):
+
+1. Read the body (413 above 10 MiB), decode the path (400 on malformed
+   percent-encoding) and parse a JSON body (400 if it is not valid JSON).
+2. Wait `--delay` ms, then fail with a 500 at `--fail-rate`.
+3. Check scenarios; the most specific match wins, ties go to the earlier
+   entry. A match is returned as-is (after its own `delayMs`), without
+   validation.
+4. Route to an operation: 404 if none matches, with nearby-path hints in
+   `--strict`.
+5. Validate the request against that operation: 422 on violation.
+6. Pick the response (`--prefer`, else the lowest declared 2xx) and generate
+   its body.
 
 ## Installation
 
+apiary-mock is not published to the npm registry. Install it from a clone.
+Requires Node.js 20+ (CI tests 20, 22 and 24 on Linux, macOS and Windows).
+
 ```bash
+git clone https://github.com/hellpuffyt/apiary-mock.git
+cd apiary-mock
 npm install
 npm run build
 ```
 
-Requires Node.js 20+.
-
 ## Usage
+
+From the clone (after `npm run build`):
 
 ```bash
 npx apiary-mock --spec ./examples/petstore.yaml
+# or: node dist/cli.js --spec ./examples/petstore.yaml
 ```
 
+`node dist/cli.js --help` prints:
+
 ```
+apiary-mock — a strict OpenAPI mock server
+
 Usage:
   apiary-mock --spec <path> [options]
 
@@ -125,6 +147,32 @@ mounted 4 operation(s):
   GET     /pets/{petId}  (getPet)
 ```
 
+### As a library
+
+In another project, install from the clone path (`npm install ../apiary-mock`)
+and start a server in-process, for example in a test:
+
+```js
+import { loadSpec, createMockServer } from "apiary-mock";
+
+const server = createMockServer({
+  doc: loadSpec("examples/petstore.yaml"),
+  strict: true,
+  seed: "my-test",
+});
+const { port } = await server.listen(0); // 0 = any free port, on 127.0.0.1
+
+const res = await fetch(`http://127.0.0.1:${port}/pets?status=bogus`);
+console.log(res.status, (await res.json()).issues[0].message);
+// 422 must be one of [available, pending, sold], got "bogus"
+
+await server.close();
+```
+
+`createMockServer` also accepts `scenarios` (from `loadScenarios(path)`),
+`preferStatus`, `delayMs`, `failRate` and `maxBodyBytes`. The package ships
+TypeScript declarations.
+
 ## Scenarios format
 
 A scenarios file is a YAML or JSON document with a top-level `scenarios`
@@ -137,7 +185,7 @@ scenarios:
       method: POST
       path: /pets
       body:
-        name: Duplicate          # partial/deep match — only these keys are checked
+        name: Duplicate          # partial/deep match: only these keys are checked
     response:
       status: 409
       headers:
@@ -159,14 +207,17 @@ scenarios:
         total: 0
 ```
 
+A `response` has `status`, optional `headers`, optional `body`, and an
+optional `delayMs` applied to that scenario only.
+
 `match` supports `method`, `path` (exact) or `pathPattern` (regex), `query`
-(exact key/value match), and `body` (a deep partial match — every key in the
+(exact key/value match), and `body` (a deep partial match: every key in the
 matcher must be present and equal in the actual body; extra keys in the
 actual body are ignored). When more than one scenario matches, the more
 specific matcher wins (more declared fields = more specific); ties are
-broken by declaration order. A matched scenario is served as-is, skipping
-normal request validation — that's the point: it lets you force responses
-the spec wouldn't otherwise produce.
+broken by declaration order. A matched scenario is served as-is and skips
+request validation, so it can return responses the spec would not otherwise
+produce.
 
 ## Examples
 
@@ -176,11 +227,17 @@ The `examples/` directory has a runnable pet store spec and scenario file:
 node dist/cli.js --spec examples/petstore.yaml --scenarios examples/scenarios.yaml --strict
 
 curl http://127.0.0.1:4010/pets
-curl "http://127.0.0.1:4010/pets?status=bogus"        # 422 — not a valid enum value
+curl "http://127.0.0.1:4010/pets?status=bogus"        # 422, not a valid enum value
 curl -X POST http://127.0.0.1:4010/pets \
   -H "content-type: application/json" \
   -d '{"name":"Rex","category":{"id":1,"name":"Dogs"}}' # 201, schema-generated body
 curl http://127.0.0.1:4010/pets/11111111-1111-1111-1111-111111111111  # scenario fixture
+```
+
+The 422 body for the second request:
+
+```json
+{"error":"Bad Request","status":422,"message":"Request does not satisfy the API specification for this operation.","issues":[{"location":"query","path":"status","message":"must be one of [available, pending, sold], got \"bogus\""}]}
 ```
 
 ## Testing
@@ -188,7 +245,8 @@ curl http://127.0.0.1:4010/pets/11111111-1111-1111-1111-111111111111  # scenario
 ```bash
 npm test          # vitest
 npx tsc --noEmit  # typecheck (src + test)
-npx eslint .       # lint
+npx eslint .      # lint (0 errors; the test files currently have 17 no-explicit-any warnings)
+npm run build     # compile to dist/
 ```
 
 The suite (184 tests across 13 files) covers `$ref` resolution (including
@@ -203,7 +261,7 @@ and hostile specs and request paths.
 
 ## Limitations
 
-- Only local `$ref`s (`#/...`) are supported — no external file or URL refs.
+- Only local `$ref`s (`#/...`) are supported; no external file or URL refs.
 - `pattern` generation is best-effort: it covers literals, character
   classes, `\d \w \s` shorthands (and negations), groups, alternation, and
   the common quantifiers. Lookaround and backreferences aren't supported and
@@ -231,7 +289,7 @@ apiary-mock is a development tool. It executes no code from the OpenAPI
 document or scenario files beyond parsing YAML/JSON, evaluating declared
 `pattern`/`pathPattern` values as regular expressions (from files you point
 it at), and returning declared/generated data. Do not point it at untrusted
-specs or scenario files, and do not expose it on a public network — it is
+specs or scenario files, and do not expose it on a public network. It is
 meant to run on `127.0.0.1` during local development or CI.
 
 Hardening that is in place: the server binds `127.0.0.1` by default; request
@@ -244,6 +302,11 @@ flags are range-checked. A `pattern` from the spec is still run against
 request input, so a catastrophic-backtracking pattern in a spec can be slow.
 
 Please report vulnerabilities privately as described in [SECURITY.md](./SECURITY.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Changes are recorded in
+[CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 
