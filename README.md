@@ -4,7 +4,50 @@ A mock HTTP server generated from an OpenAPI 3.0/3.1 document. It validates
 each request against the spec before answering and rejects the ones the spec
 does not allow.
 
-<img src="docs/assets/overview.svg" width="100%" alt="Diagram of apiary-mock: at startup cli.ts, the openapi loader and createMockServer; per request the stages request, --delay/--fail-rate, scenarios, router, validation, respond and generation, with the early responses each stage can send">
+## Demo
+
+<img src="docs/screenshots/apiary-mock-petstore-requests.png" width="100%" alt="Terminal capture: apiary-mock serves examples/petstore.yaml; curl gets a generated pet list (200), a 422 for an invalid enum, a 422 for a body missing name with an extra property, a 201 with a generated pet, and the scenario fixture for a fixed pet id">
+
+Terminal capture of a real session: the server started with the bundled pet store spec and
+scenarios, then five requests from a second shell. Generated values come from the seed, so they
+differ with another `--seed`. The same session as text:
+
+<details>
+<summary>Full output</summary>
+
+```console
+$ node dist/cli.js --spec examples/petstore.yaml --scenarios examples/scenarios.yaml --strict --seed demo &
+apiary-mock — Petary — Example Pet Store API (1.0.0)
+listening on http://127.0.0.1:4010
+
+mounted 4 operation(s):
+  GET     /pets  (listPets)
+  POST    /pets  (createPet)
+  DELETE  /pets/{petId}  (deletePet)
+  GET     /pets/{petId}  (getPet)
+
+$ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets
+{"items":[{"name":"bravodeltahotelfoxtrotechohotelalph","tag":"gol","category":{"id":911,"name":"golfcha","parent":null},"status":"pending","id":"87c314fe-57d3-403e-85e0-c3ef6edfd8af"},{"name":"bravohotelbravofoxtrotdeltaalphagolff","tag":"hotelch","category":{"id":759,"name":"charli","parent":null},"status":"sold","acquiredAt":"2022-09-26T13:53:10Z","id":"e8715d14-cdce-4bee-9e39-15e76c907165"},{"name":"hotelalphabravobravodeltagolfgo","tag":"f","category":{"id":882,"name":"c","parent":null},"status":"sold","acquiredAt":"2024-09-13T22:18:29Z","id":"19a7d8b6-bb11-4084-b9d9-b84575b4b7a8"},{"name":"bravoechoalphahoteld","tag":"deltae","category":{"id":233,"name":"a","parent":null},"acquiredAt":"2024-09-05T09:30:21Z","id":"9edad870-6b96-43b4-a7fc-fb8e5004541d"},{"name":"echohotelbravoalphabravobravofoxtrothotelecho","tag":"h","category":{"id":117,"name":"bra","parent":null},"status":"pending","acquiredAt":"2027-08-18T01:51:57Z","id":"8bc8a495-e594-42b3-ba12-c0f65aa495a6"}],"total":793}
+HTTP 200
+
+$ curl -s -w '\nHTTP %{http_code}\n' "http://127.0.0.1:4010/pets?status=bogus"
+{"error":"Bad Request","status":422,"message":"Request does not satisfy the API specification for this operation.","issues":[{"location":"query","path":"status","message":"must be one of [available, pending, sold], got \"bogus\""}]}
+HTTP 422
+
+$ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "content-type: application/json" -d '{"category":{"id":1,"name":"Dogs"},"nickname":"Rex"}'
+{"error":"Bad Request","status":422,"message":"Request does not satisfy the API specification for this operation.","issues":[{"location":"body","path":"$","message":"must have required property 'name'"},{"location":"body","path":"$","message":"must NOT have additional properties"}]}
+HTTP 422
+
+$ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "content-type: application/json" -d '{"name":"Rex","category":{"id":1,"name":"Dogs"}}'
+{"name":"bravocharliedeltaechobravobravocharliedeltaalphagol","tag":"ho","category":{"id":638,"name":"f","parent":null},"status":"available","id":"1ea9b91f-14f4-4f0b-9139-8107cc1943d7"}
+HTTP 201
+
+$ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets/11111111-1111-1111-1111-111111111111
+{"id":"11111111-1111-1111-1111-111111111111","name":"Fixture Fido","category":{"id":1,"name":"Dogs"},"status":"available"}
+HTTP 200
+```
+
+</details>
 
 ## What it does
 
@@ -59,6 +102,10 @@ the way the spec says the real API should.
   you can see at a glance what's being served.
 
 ## Architecture
+
+<img src="docs/assets/overview.svg" width="100%" alt="Diagram of apiary-mock: at startup cli.ts, the openapi loader and createMockServer; per request the stages request, --delay/--fail-rate, scenarios, router, validation, respond and generation, with the early responses each stage can send">
+
+Diagram (not a screenshot): the startup path and the per-request stages, with the early responses each stage can send.
 
 ```
 src/
