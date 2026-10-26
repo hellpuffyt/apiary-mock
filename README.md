@@ -10,7 +10,10 @@ does not allow.
 
 Terminal capture of a real session: the server started with the bundled pet store spec and
 scenarios, then five requests from a second shell. Generated values come from the seed, so they
-differ with another `--seed`. The same session as text:
+differ with another `--seed`. A fresh server started with the same seed and sent the same
+requests in the same order returns these exact responses, because the generator is seeded from
+the seed, the operation and a per-server count of generated responses (requests answered with a
+422 or a scenario fixture do not advance it). The same session as text:
 
 <details>
 <summary>Full output</summary>
@@ -27,7 +30,7 @@ mounted 4 operation(s):
   GET     /pets/{petId}  (getPet)
 
 $ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets
-{"items":[{"name":"bravodeltahotelfoxtrotechohotelalph","tag":"gol","category":{"id":911,"name":"golfcha","parent":null},"status":"pending","id":"87c314fe-57d3-403e-85e0-c3ef6edfd8af"},{"name":"bravohotelbravofoxtrotdeltaalphagolff","tag":"hotelch","category":{"id":759,"name":"charli","parent":null},"status":"sold","acquiredAt":"2022-09-26T13:53:10Z","id":"e8715d14-cdce-4bee-9e39-15e76c907165"},{"name":"hotelalphabravobravodeltagolfgo","tag":"f","category":{"id":882,"name":"c","parent":null},"status":"sold","acquiredAt":"2024-09-13T22:18:29Z","id":"19a7d8b6-bb11-4084-b9d9-b84575b4b7a8"},{"name":"bravoechoalphahoteld","tag":"deltae","category":{"id":233,"name":"a","parent":null},"acquiredAt":"2024-09-05T09:30:21Z","id":"9edad870-6b96-43b4-a7fc-fb8e5004541d"},{"name":"echohotelbravoalphabravobravofoxtrothotelecho","tag":"h","category":{"id":117,"name":"bra","parent":null},"status":"pending","acquiredAt":"2027-08-18T01:51:57Z","id":"8bc8a495-e594-42b3-ba12-c0f65aa495a6"}],"total":793}
+{"items":[{"name":"bravohotelechogolffoxtrotalpha","tag":"deltago","category":{"id":66,"name":"brav","parent":null},"status":"pending","acquiredAt":"2030-11-22T05:33:07Z","id":"0745e01a-39fe-49e8-bc70-a77a8ac97ba0"}],"total":757}
 HTTP 200
 
 $ curl -s -w '\nHTTP %{http_code}\n' "http://127.0.0.1:4010/pets?status=bogus"
@@ -39,7 +42,7 @@ $ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "cont
 HTTP 422
 
 $ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "content-type: application/json" -d '{"name":"Rex","category":{"id":1,"name":"Dogs"}}'
-{"name":"bravocharliedeltaechobravobravocharliedeltaalphagol","tag":"ho","category":{"id":638,"name":"f","parent":null},"status":"available","id":"1ea9b91f-14f4-4f0b-9139-8107cc1943d7"}
+{"name":"hotelcharliecharliegolfgolfechocharliegolfbravohotelbr","tag":"fo","category":{"id":216,"name":"foxtr","parent":null},"status":"sold","acquiredAt":"2022-02-08T14:51:27Z","id":"3ceb754d-4ef9-4d51-9553-dae43333562c"}
 HTTP 201
 
 $ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets/11111111-1111-1111-1111-111111111111
