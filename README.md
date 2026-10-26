@@ -4,7 +4,53 @@ A mock HTTP server generated from an OpenAPI 3.0/3.1 document. It validates
 each request against the spec before answering and rejects the ones the spec
 does not allow.
 
-<img src="docs/assets/overview.svg" width="100%" alt="Diagram of apiary-mock: at startup cli.ts, the openapi loader and createMockServer; per request the stages request, --delay/--fail-rate, scenarios, router, validation, respond and generation, with the early responses each stage can send">
+## Demo
+
+<img src="docs/screenshots/apiary-mock-petstore-requests.png" width="100%" alt="Terminal capture: apiary-mock serves examples/petstore.yaml; curl gets a generated pet list (200), a 422 for an invalid enum, a 422 for a body missing name with an extra property, a 201 with a generated pet, and the scenario fixture for a fixed pet id">
+
+Terminal capture of a real session: the server started with the bundled pet store spec and
+scenarios, then five requests from a second shell. Generated values come from the seed, so they
+differ with another `--seed`. A fresh server started with the same seed and sent the same
+requests in the same order returns these exact responses, because the generator is seeded from
+the seed, the operation and a per-server count of generated responses (requests answered with a
+422 or a scenario fixture do not advance it). The same session as text:
+
+<details>
+<summary>Full output</summary>
+
+```console
+$ node dist/cli.js --spec examples/petstore.yaml --scenarios examples/scenarios.yaml --strict --seed demo &
+apiary-mock — Petary — Example Pet Store API (1.0.0)
+listening on http://127.0.0.1:4010
+
+mounted 4 operation(s):
+  GET     /pets  (listPets)
+  POST    /pets  (createPet)
+  DELETE  /pets/{petId}  (deletePet)
+  GET     /pets/{petId}  (getPet)
+
+$ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets
+{"items":[{"name":"bravohotelechogolffoxtrotalpha","tag":"deltago","category":{"id":66,"name":"brav","parent":null},"status":"pending","acquiredAt":"2030-11-22T05:33:07Z","id":"0745e01a-39fe-49e8-bc70-a77a8ac97ba0"}],"total":757}
+HTTP 200
+
+$ curl -s -w '\nHTTP %{http_code}\n' "http://127.0.0.1:4010/pets?status=bogus"
+{"error":"Bad Request","status":422,"message":"Request does not satisfy the API specification for this operation.","issues":[{"location":"query","path":"status","message":"must be one of [available, pending, sold], got \"bogus\""}]}
+HTTP 422
+
+$ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "content-type: application/json" -d '{"category":{"id":1,"name":"Dogs"},"nickname":"Rex"}'
+{"error":"Bad Request","status":422,"message":"Request does not satisfy the API specification for this operation.","issues":[{"location":"body","path":"$","message":"must have required property 'name'"},{"location":"body","path":"$","message":"must NOT have additional properties"}]}
+HTTP 422
+
+$ curl -s -w '\nHTTP %{http_code}\n' -X POST http://127.0.0.1:4010/pets -H "content-type: application/json" -d '{"name":"Rex","category":{"id":1,"name":"Dogs"}}'
+{"name":"hotelcharliecharliegolfgolfechocharliegolfbravohotelbr","tag":"fo","category":{"id":216,"name":"foxtr","parent":null},"status":"sold","acquiredAt":"2022-02-08T14:51:27Z","id":"3ceb754d-4ef9-4d51-9553-dae43333562c"}
+HTTP 201
+
+$ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:4010/pets/11111111-1111-1111-1111-111111111111
+{"id":"11111111-1111-1111-1111-111111111111","name":"Fixture Fido","category":{"id":1,"name":"Dogs"},"status":"available"}
+HTTP 200
+```
+
+</details>
 
 ## What it does
 
@@ -59,6 +105,10 @@ the way the spec says the real API should.
   you can see at a glance what's being served.
 
 ## Architecture
+
+<img src="docs/assets/overview.svg" width="100%" alt="Diagram of apiary-mock: at startup cli.ts, the openapi loader and createMockServer; per request the stages request, --delay/--fail-rate, scenarios, router, validation, respond and generation, with the early responses each stage can send">
+
+Diagram (not a screenshot): the startup path and the per-request stages, with the early responses each stage can send.
 
 ```
 src/
